@@ -108,6 +108,39 @@ function init(newRows=5,newCols=5){
       grid[i].rot = Math.floor(Math.random()*4);
     }
   }
+    // Promote some vertical straights to crosses and some elbows to T's so T and cross appear
+    function rotateMaskBack(mask, rot){ // rotate mask counter-clockwise 'rot' times
+      rot = ((rot%4)+4)%4;
+      for(let i=0;i<rot;i++) mask = ((mask>>1)&0xF) | ((mask&1)<<3);
+      return mask;
+    }
+    // collect displayed masks
+    const verticalMask = (1|4);
+    const horizontalMask = (2|8);
+    const tMasks = [1|2|4,2|4|8,4|8|1,8|1|2];
+    const crossMask = 1|2|4|8;
+    const vertIndices = [];
+    const elbowIndices = [];
+    for(let i=0;i<rows*cols;i++){
+      const cell = grid[i]; if(!cell) continue;
+      const disp = rotateMask(cell.conns, cell.rot);
+      if(disp === verticalMask) vertIndices.push(i);
+      else if(disp !== horizontalMask && disp !== crossMask && bitCount(disp)===2) elbowIndices.push(i);
+    }
+    // helper to pick up to n random elements from array
+    function pickRandom(arr, n){ const copy = arr.slice(); for(let i=copy.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [copy[i],copy[j]]=[copy[j],copy[i]] } return copy.slice(0,n); }
+    const pickVerts = pickRandom(vertIndices, 2);
+    for(const idx of pickVerts){
+      const cell = grid[idx]; const targetDisp = crossMask;
+      grid[idx].conns = rotateMaskBack(targetDisp, cell.rot);
+    }
+    const pickElbows = pickRandom(elbowIndices, 2);
+    for(const idx of pickElbows){
+      const cell = grid[idx]; const disp = rotateMask(cell.conns, cell.rot);
+      // choose a T mask that includes current elbow connectors
+      const tm = tMasks.find(t => (t & disp) === disp) || tMasks[Math.floor(Math.random()*tMasks.length)];
+      grid[idx].conns = rotateMaskBack(tm, cell.rot);
+    }
   draw();
 }
 
