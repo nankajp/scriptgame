@@ -1,0 +1,19 @@
+:root{
+  --bg:#111;
+  --panel:#1b1b1b;
+  --accent:#ffcc33;
+  --muted:#777;
+}
+html,body{height:100%;margin:0;font-family:Segoe UI, Roboto, Arial;background:linear-gradient(180deg,#0b1020 0%, #071126 100%);color:#eee}
+.container{max-width:960px;width:calc(100% - 24px);margin:28px auto;padding:16px;background:rgba(255,255,255,0.02);border-radius:8px}
+#gameWrapper{display:flex;justify-content:center}
+#gameCanvas{max-width:100%;height:auto}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.title{font-size:20px}
+.controls{display:flex;gap:8px;align-items:center}
+button{background:var(--panel);border:1px solid rgba(255,255,255,0.03);color:#ddd;padding:8px 10px;border-radius:6px;cursor:pointer}
+button:hover{filter:brightness(1.08)}
+#gameCanvas{background:transparent;display:block;margin:8px auto;border-radius:6px}
+.info{color:var(--muted);font-size:13px}
+.footer{margin-top:12px;color:var(--muted);font-size:13px}
+/* grid cell visuals handled in canvas drawing */
