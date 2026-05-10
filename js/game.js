@@ -246,7 +246,7 @@ function getCanvasPoint(clientX, clientY){
 }
 
 let touchScrolling = false; // set true briefly while a touchmove happens to prevent accidental taps
-let lastTouchTime = 0;
+let lastTouchTime = 0; // timestamp (ms) of last touch interaction to suppress the synthetic click
 
 function handlePointerActivation(clientX, clientY){
   const p = getCanvasPoint(clientX, clientY);
@@ -263,17 +263,24 @@ function handlePointerActivation(clientX, clientY){
   }
 }
 
-canvas.addEventListener('click', e => { handlePointerActivation(e.clientX, e.clientY); });
+canvas.addEventListener('click', e => {
+  // Ignore the synthetic click generated after a real touchend if it happens soon after.
+  if(Date.now() - lastTouchTime < 400) { return; }
+  handlePointerActivation(e.clientX, e.clientY);
+});
 
 // touch support: use touchend to detect taps, touchmove to mark scrolling activity
 canvas.addEventListener('touchstart', e=>{ touchScrolling=false; }, { passive:true });
 canvas.addEventListener('touchmove', e=>{ touchScrolling = true; lastTouchTime = Date.now(); }, { passive:true });
 canvas.addEventListener('touchend', e=>{
+  // Prevent the browser from synthesizing a following click event and mark touch time
+  if(e && typeof e.preventDefault === 'function') e.preventDefault();
   if(e.changedTouches && e.changedTouches.length>0){
     const t = e.changedTouches[0];
     handlePointerActivation(t.clientX, t.clientY);
   }
-}, { passive:true });
+  lastTouchTime = Date.now();
+}, { passive:false });
 
 function checkWin(){
   // Connect from the top-side external power A into cell (0, powerA.c) via North connector,
