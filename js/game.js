@@ -23,10 +23,11 @@ function init(newRows=5,newCols=5){
   const wrapper = document.getElementById('gameWrapper') || document.body;
   const availWidth = Math.max(200, wrapper.clientWidth - 20);
   const availHeight = Math.max(200, window.innerHeight - 200); // leave space for UI
-  // available for grid: width = cols*cellSize, height = rows*cellSize
+  // update margins based on cell size later; for now compute candidate cellSize
   let maxCellByWidth = Math.floor(availWidth / cols);
   let maxCellByHeight = Math.floor((availHeight - topMargin - bottomMargin) / rows);
-    cellSize = Math.max(40, Math.min(64, Math.min(maxCellByWidth, maxCellByHeight)));
+  cellSize = Math.max(40, Math.min(64, Math.min(maxCellByWidth, maxCellByHeight)));
+  topMargin = cellSize; bottomMargin = cellSize;
   canvas.width = cols*cellSize + 2;
   canvas.height = topMargin + rows*cellSize + bottomMargin + 2;
   grid = [];
@@ -99,9 +100,27 @@ function init(newRows=5,newCols=5){
 let resizeTimeout = null;
 function handleResize(){
   if(resizeTimeout) clearTimeout(resizeTimeout);
-  resizeTimeout = setTimeout(()=>{ init(rows,cols); if(running) updateHUD(); },120);
+  // On mobile browsers the viewport height changes while scrolling (address bar show/hide).
+  // Avoid regenerating the grid (which scrambles state) on such height-only changes.
+  resizeTimeout = setTimeout(()=>{ resizeCanvasPreserveGrid(); if(running) updateHUD(); },120);
 }
 window.addEventListener('resize', handleResize);
+
+// Resize the canvas and recompute cellSize but keep current grid/rotations intact.
+function resizeCanvasPreserveGrid(){
+  const wrapper = document.getElementById('gameWrapper') || document.body;
+  const availWidth = Math.max(200, wrapper.clientWidth - 20);
+  const availHeight = Math.max(200, window.innerHeight - 200);
+  let maxCellByWidth = Math.floor(availWidth / cols);
+  let maxCellByHeight = Math.floor((availHeight - topMargin - bottomMargin) / rows);
+  const newCellSize = Math.max(40, Math.min(64, Math.min(maxCellByWidth, maxCellByHeight)));
+  // if cellSize didn't change, only redraw
+  if(newCellSize === cellSize){ draw(); return; }
+  cellSize = newCellSize; topMargin = cellSize; bottomMargin = cellSize;
+  canvas.width = cols*cellSize + 2;
+  canvas.height = topMargin + rows*cellSize + bottomMargin + 2;
+  draw();
+}
 
 function generatePath(){
   // generate a path that starts from top row (r=0) and reaches bottom row (r=rows-1)
@@ -216,18 +235,45 @@ function rotateMask(mask,rot){
   return mask;
 }
 
-canvas.addEventListener('click',e=>{
+// Helpers to correctly map pointer/touch events to canvas coordinates even when CSS scaled
+function getCanvasPoint(clientX, clientY){
   const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left; const y = e.clientY - rect.top;
-  const c = Math.floor(x/cellSize); const r = Math.floor((y - topMargin)/cellSize);
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (clientX - rect.left) * scaleX;
+  const y = (clientY - rect.top) * scaleY;
+  return { x, y };
+}
+
+let touchScrolling = false; // set true briefly while a touchmove happens to prevent accidental taps
+let lastTouchTime = 0;
+
+function handlePointerActivation(clientX, clientY){
+  const p = getCanvasPoint(clientX, clientY);
+  const c = Math.floor(p.x / cellSize);
+  const r = Math.floor((p.y - topMargin) / cellSize);
   if(r<0||r>=rows||c<0||c>=cols) return;
-  if(!running) return; // ignore clicks until game started
+  if(!running) return; // ignore until started
+  // If a touch scroll just happened, ignore the tap (prevents misfires after scrolling)
+  if(touchScrolling && (Date.now() - lastTouchTime) < 350) return;
   let idx=r*cols+c; grid[idx].rot = (grid[idx].rot+1)%4; moves++; updateHUD(); draw();
   if(checkWin()){
     stopGame();
     setTimeout(()=>{ alert('Cleared! Time: '+formatTime(elapsed)+" Moves: "+moves); },50);
   }
-});
+}
+
+canvas.addEventListener('click', e => { handlePointerActivation(e.clientX, e.clientY); });
+
+// touch support: use touchend to detect taps, touchmove to mark scrolling activity
+canvas.addEventListener('touchstart', e=>{ touchScrolling=false; }, { passive:true });
+canvas.addEventListener('touchmove', e=>{ touchScrolling = true; lastTouchTime = Date.now(); }, { passive:true });
+canvas.addEventListener('touchend', e=>{
+  if(e.changedTouches && e.changedTouches.length>0){
+    const t = e.changedTouches[0];
+    handlePointerActivation(t.clientX, t.clientY);
+  }
+}, { passive:true });
 
 function checkWin(){
   // Connect from the top-side external power A into cell (0, powerA.c) via North connector,
