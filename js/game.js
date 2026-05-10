@@ -59,7 +59,8 @@ function init(newRows=5,newCols=5){
   const remainingSpecial = Math.max(0, maxSpecial - currentSpecial);
   // choose random indices to host special tiles (T or cross)
   const specialTiles = [1|2|4,2|4|8,4|8|1,8|1|2,1|2|4|8];
-  const simpleTiles = [1|2,2|4,4|8,8|1,1|4];
+  // simple straight/elbow tiles. Removed vertical-only short piece (1|4) to avoid short one-segment drawings
+  const simpleTiles = [1|2,2|4,4|8,8|1];
   const chosenSpecialIndices = new Set();
   if(remainingSpecial>0){
     // shuffle nonPathIndices and pick up to remainingSpecial
@@ -92,6 +93,20 @@ function init(newRows=5,newCols=5){
     const pick = candidates[Math.floor(Math.random()*candidates.length)];
     let idx2 = pick.r*cols+pick.c;
     grid[idx2].rot = (grid[idx2].solutionRot + 1) % 4;
+  }
+  // Remove any single-connector tiles (bitcount == 1) by converting them to an elbow
+  // This avoids visually short one-segment tiles appearing.
+  const elbows = [1|2,2|4,4|8,8|1];
+  function bitCount(x){ let c=0; for(let i=0;i<4;i++) if(x&(1<<i)) c++; return c; }
+  for(let i=0;i<rows*cols;i++){
+    const cell = grid[i]; if(!cell) continue;
+    const bits = cell.conns;
+    if(bitCount(bits)===1){
+      // prefer an elbow that keeps the existing direction
+      let chosen = elbows.find(e => (e & bits) !== 0) || elbows[Math.floor(Math.random()*elbows.length)];
+      grid[i].conns = chosen;
+      grid[i].rot = Math.floor(Math.random()*4);
+    }
   }
   draw();
 }
